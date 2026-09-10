@@ -1,0 +1,24 @@
+{
+  "name": "khl-tvg",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "generate": "bun generate.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "@types/bun": "latest",
+    "wrangler": "^4.130.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@iptv/xmltv": "^1.0.1",
+    "itty-router": "^5.0.24"
+  }
+}

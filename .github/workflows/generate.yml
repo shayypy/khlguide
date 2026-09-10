@@ -1,0 +1,25 @@
+name: Generate Guide
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        name: Set up Bun
+        with:
+          bun-version: 1.3.14
+      - name: Run generation script
+        run: |
+          bun generate.ts
+          git add public/*
+      - name: Commit guide
+        uses: qoomon/actions--create-commit@v1
+        with:
+          message: "chore: generate guide"
+          skip-empty: true
+      - run: git push
