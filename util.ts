@@ -142,6 +142,9 @@ export const generateXmltv = (
                   lang: "en",
                 },
           ];
+          // For DVR filtering
+          programme.desc = programme.subTitle;
+
           programme.episodeNum = [
             {
               system: "onscreen",
