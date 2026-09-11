@@ -1,4 +1,4 @@
-name: Generate Guide
+name: Save data & generate guides
 on:
   workflow_dispatch:
   schedule:
@@ -20,6 +20,6 @@ jobs:
       - name: Commit guide
         uses: qoomon/actions--create-commit@v1
         with:
-          message: "chore: generate guide"
+          message: "chore: generate guides"
           skip-empty: true
       - run: git push
