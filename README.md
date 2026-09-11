@@ -1,5 +1,3 @@
-# khl-tvg
-
 This is a simple worker/static file generator that proxies the schedule for KHL TV/KHL Prime. As a file generator, it makes available two files for each locale: the raw endpoint response (.json) and an opinionated EPG file (.xml). It is opinionated in that it attempts to "normalize" some programmes (games) in order to make the guide more compatible with DVR systems. 
 
 ## Files
