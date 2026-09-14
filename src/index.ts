@@ -138,6 +138,8 @@ router.get("/:lang/guide.xml", withLanguage, withCache, async (req) => {
   return res;
 });
 
+router.get("*", () => Response.json({ message: "Not Found" }, { status: 404 }));
+
 export default {
   fetch: router.fetch,
 } satisfies ExportedHandler;

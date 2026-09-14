@@ -48,7 +48,7 @@ const redirectFix = async (
     const eq = pair.indexOf("=");
     if (eq > 0) {
       cookieJar.set(pair.slice(0, eq), pair.slice(eq + 1));
-      if (Bun.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV === "development") {
         console.log(pair.slice(0, eq), pair.slice(eq + 1));
       }
     }

@@ -118,6 +118,14 @@ export const generateXmltv = (
         if (item.fields.pg) {
           programme.rating = [{ system: "Russia", value: item.fields.pg }];
         }
+        if (
+          // .game should only be populated for new games, not re-airs
+          item.fields.game ||
+          // live broadcast
+          item.fields.title.endsWith("Прямая трансляция")
+        ) {
+          programme.new = true;
+        }
         if (item.fields.game && !Array.isArray(item.fields.game)) {
           programme.title = [
             lang === "ru"
@@ -125,6 +133,7 @@ export const generateXmltv = (
               : { _value: "KHL Hockey", lang: "en" },
           ];
           const { game } = item.fields;
+          const gameDate = new Date(game.full_date * 1000);
           programme.subTitle = [
             lang === "ru"
               ? {
@@ -132,19 +141,27 @@ export const generateXmltv = (
                   lang: "ru",
                 }
               : {
-                  _value: `${game.homeName_en} vs. ${game.visitorName_en} - ${new Date(
-                    game.date,
-                  ).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}`,
+                  _value: `${game.homeName_en} vs. ${game.visitorName_en} - ${gameDate.toLocaleDateString(
+                    "en-US",
+                    { month: "long", day: "numeric", year: "numeric" },
+                  )}`,
                   lang: "en",
                 },
           ];
           // For DVR filtering
-          programme.desc = programme.subTitle;
+          programme.desc = [
+            lang === "ru"
+              ? {
+                  _value: `"${game.homeName}" - "${game.visitorName}". ${game.arena} в ${game.arena_city}`,
+                  lang: "ru",
+                }
+              : {
+                  _value: `${game.homeName_en} vs. ${game.visitorName_en}, playing at ${game.arena_en} in ${game.arena_city_en}. (${game.homeName} - ${game.visitorName})`,
+                  lang: "en",
+                },
+          ];
 
+          programme.date = gameDate;
           programme.episodeNum = [
             {
               system: "onscreen",
@@ -164,24 +181,136 @@ export const generateXmltv = (
             { src: `https:${game.teams.teama.logo}`, width: 200, height: 200 },
             { src: `https:${game.teams.teamb.logo}`, width: 200, height: 200 },
           ];
-        } else if (item.fields.game) {
-          // non-khl game, clean up title for DVRs
-          const cleaned = item.fields.title.split(".")[0];
-          if (cleaned) {
-            programme.title = [{ _value: cleaned, lang: "ru" }];
+        } else if (
+          item.fields.game ||
+          item.fields.title.includes("МХЛ") ||
+          item.fields.title.includes("КХЛ")
+        ) {
+          // Try to clean up for DVRs - not a KHL game (.game == []) or it's a re-air (no .game attr)
+          if (
+            item.fields.title.includes("Чемпионат МХЛ.") ||
+            item.fields.title.includes("Чемпионат КХЛ.")
+          ) {
+            const split = item.fields.title.split(".");
+            if (split[0]?.endsWith("КХЛ")) {
+              programme.title = [
+                lang === "ru"
+                  ? { _value: "Чемпионат КХЛ", lang: "ru" }
+                  : { _value: "KHL Hockey", lang: "en" },
+              ];
+              programme.icon = [
+                {
+                  src: "https://upload.wikimedia.org/wikipedia/en/a/a9/KHL_logo_shield_2016.svg",
+                },
+              ];
+            } else if (split[0]?.endsWith("МХЛ")) {
+              programme.title = [
+                lang === "ru"
+                  ? { _value: "Чемпионат МХЛ", lang: "ru" }
+                  : { _value: "MHL Hockey", lang: "en" },
+              ];
+              programme.icon = [
+                {
+                  src: "https://mhl.khl.ru/local/templates/mhl2016/i/2020/mhl_logo_ru.svg",
+                },
+              ];
+            }
+
+            const matchup = split[1];
+            if (matchup) {
+              programme.desc = [{ _value: `${matchup}`, lang: "ru" }];
+            }
+          } else {
+            const cleaned = item.fields.title.split(".")[0];
+            if (cleaned) {
+              programme.title = [{ _value: cleaned, lang: "ru" }];
+            }
           }
         } else {
-          const seriyaMatch = (item.fields["sub-title"] ?? "").match(
-            /Серия (\d+)$/i,
-          );
-          if (seriyaMatch) {
+          // populate episode field
+          const subTitle = item.fields["sub-title"];
+          const SERIYA_RE = /Серия (\d+)$/i;
+          const VIPUSK_RE = /(\d+) выпуск/i;
+
+          const matchOn = subTitle || item.fields.title;
+          const episodeMatch =
+            matchOn.match(SERIYA_RE) ?? matchOn.match(VIPUSK_RE);
+          if (episodeMatch?.[1]) {
             programme.episodeNum = [
               {
-                _value: `E${seriyaMatch[1]}`,
+                _value: `E${episodeMatch[1]}`,
                 system: "onscreen",
               },
             ];
           }
+
+          // stock translations for some common shows for easier english
+          // browsing. some of these don't work, not sure why
+          if (lang === "en") {
+            const parts = item.fields.title.split(".").map((p) => p.trim());
+            const defaultSubTitle = parts.slice(1).join(". ") || undefined;
+
+            const setTitle = (newTitle: string, subTitle = defaultSubTitle) => {
+              programme.title = [
+                { _value: newTitle, lang: "en" },
+                ...programme.title,
+              ];
+              if (subTitle && subTitle !== "Прямой эфир") {
+                programme.subTitle = [
+                  { _value: subTitle, lang: "en" },
+                  ...(programme.subTitle ?? []),
+                ];
+              }
+              if (!programme.subTitle) {
+                programme.subTitle = programme.title.slice(1);
+              }
+            };
+
+            switch (parts[0]?.replace(/^"|"$/g, "").trim()) {
+              case "Доброе утро":
+                setTitle("Good Morning");
+                break;
+              case "Подробно":
+                setTitle("Details");
+                break;
+              case "Видео дня":
+                setTitle("Video of the Day");
+                break;
+              case "Неделя КХЛ":
+                setTitle("KHL Week");
+                break;
+              case "Трансферы":
+                setTitle("Trades");
+                break;
+              case "На связи":
+                setTitle("On the Line");
+                break;
+              case "Всё, кроме хоккея":
+                setTitle("Everything Except Hockey");
+                break;
+              case "Вратарская бригада":
+                setTitle("The Goalie Crew");
+                break;
+              case "Кубок Мэра Москвы":
+                setTitle("Moscow Mayor's Cup");
+                break;
+              case "Каникулы с Богданом Киселевичем":
+                setTitle("Vacation with Bogdan Kiselevich");
+                break;
+              case "Студия Live":
+                setTitle("Live Studio");
+                break;
+              default:
+                break;
+            }
+          }
+        }
+        if (programme.date === undefined) {
+          try {
+            programme.date = parseUnroundedTimestamp(
+              `${item.fields.date}000000 +300`,
+            );
+          } catch {}
         }
 
         xmltv.programmes?.push(programme);
